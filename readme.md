@@ -51,6 +51,10 @@ Generate an ID with `generator.generate()`. Then just use it like any other `u64
 
 Generate with supplied random value with `generator.generate_with_random(random)`。
 
+## Performance
+
+Fast. About 45ns/iter in default config and `rand::rngs::ThreadRng` random source on an AMD Ryzen 3700X.
+
 ## License
 
 MIT.
