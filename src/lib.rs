@@ -12,7 +12,7 @@ use std::time::SystemTime;
 pub struct IceDustGenerator<
     G: Rng,
     const TIMESTAMP_BITS: u8,
-    const TIMESTAMP_PRECISION: u64,
+    const TIMESTAMP_RESOLUTION: u64,
     const MACHINE_ID_BITS: u8,
     const MONOTONIC: bool,
 > {
@@ -25,15 +25,28 @@ pub struct IceDustGenerator<
     last_random: u64,
 }
 
-impl<G: Rng, const TIMESTAMP_BITS: u8, const TIMESTAMP_PRECISION: u64, const MONOTONIC: bool>
-    IceDustGenerator<G, TIMESTAMP_BITS, TIMESTAMP_PRECISION, 0, MONOTONIC>
+impl<G: Rng, const TIMESTAMP_BITS: u8, const TIMESTAMP_RESOLUTION: u64, const MONOTONIC: bool>
+    IceDustGenerator<G, TIMESTAMP_BITS, TIMESTAMP_RESOLUTION, 0, MONOTONIC>
 {
-    /// Make a new IceDust Generator with no machine ID
-    pub fn new(
+    /// this constructor uses no machine ID and epoch at Unix epoch. You still need to fill in the rest of the parameters.
+    pub fn new_simple(
         generator: G,
-    ) -> IceDustGenerator<G, TIMESTAMP_BITS, TIMESTAMP_PRECISION, 0, MONOTONIC> {
+    ) -> IceDustGenerator<G, TIMESTAMP_BITS, TIMESTAMP_RESOLUTION, 0, MONOTONIC> {
         assert!((TIMESTAMP_BITS) < 64);
 
+        IceDustGenerator {
+            generator,
+            machine_id: 0,
+            epoch: SystemTime::UNIX_EPOCH,
+            last_timestamp: 0,
+            last_random: 0,
+        }
+    }
+}
+
+impl<G: Rng> IceDustGenerator<G, 39, 10, 0, true> {
+    /// this constructor uses 39 bits of time at 10ms resolution, no machine ID and epoch at Unix epoch. No parameters needed.
+    pub fn new_default(generator: G) -> IceDustGenerator<G, 39, 10, 0, true> {
         IceDustGenerator {
             generator,
             machine_id: 0,
@@ -47,18 +60,18 @@ impl<G: Rng, const TIMESTAMP_BITS: u8, const TIMESTAMP_PRECISION: u64, const MON
 impl<
         G: Rng,
         const TIMESTAMP_BITS: u8,
-        const TIMESTAMP_PRECISION: u64,
+        const TIMESTAMP_RESOLUTION: u64,
         const MACHINE_ID_BITS: u8,
         const MONOTONIC: bool,
-    > IceDustGenerator<G, TIMESTAMP_BITS, TIMESTAMP_PRECISION, MACHINE_ID_BITS, MONOTONIC>
+    > IceDustGenerator<G, TIMESTAMP_BITS, TIMESTAMP_RESOLUTION, MACHINE_ID_BITS, MONOTONIC>
 {
     const RANDOM_BITS: u8 = 64 - TIMESTAMP_BITS - MACHINE_ID_BITS;
 
-    pub fn new_full(
+    pub fn new(
         generator: G,
         machine_id: u64,
         epoch: SystemTime,
-    ) -> IceDustGenerator<G, TIMESTAMP_BITS, TIMESTAMP_PRECISION, MACHINE_ID_BITS, MONOTONIC> {
+    ) -> IceDustGenerator<G, TIMESTAMP_BITS, TIMESTAMP_RESOLUTION, MACHINE_ID_BITS, MONOTONIC> {
         assert!((TIMESTAMP_BITS + MACHINE_ID_BITS) < 64);
         let machine_id = machine_id & ((1 << MACHINE_ID_BITS) - 1);
 
@@ -93,12 +106,12 @@ impl<
             .unwrap()
             .as_millis();
 
-        if timestamp >= ((1 << TIMESTAMP_BITS) * TIMESTAMP_PRECISION) as u128 {
+        if timestamp >= ((1 << TIMESTAMP_BITS) * TIMESTAMP_RESOLUTION) as u128 {
             // Check timestamp range. Should be cold path.
             return None;
         };
         let timestamp = timestamp as u64;
-        let timestamp = timestamp / TIMESTAMP_PRECISION;
+        let timestamp = timestamp / TIMESTAMP_RESOLUTION;
 
         let last = self.last_timestamp;
         self.last_timestamp = timestamp;
