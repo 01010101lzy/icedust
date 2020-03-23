@@ -1,0 +1,18 @@
+[package]
+name = "icedust"
+description = "IceDust is a ID generation algorithm inspired by Ulid and Twitter Snowflake"
+version = "0.1.0"
+authors = ["Rynco Maekawa <lynzrand@outlook.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dependencies]
+rand = "0.7"
+crockford = { version = "^1.0.1" }
+
+[dev-dependencies]
+criterion = "^0.3.1"
+
+[[bench]]
+name = "time_bench"
+harness = false
