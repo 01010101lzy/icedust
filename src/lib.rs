@@ -73,7 +73,7 @@ impl<
         epoch: SystemTime,
     ) -> IceDustGenerator<G, TIMESTAMP_BITS, TIMESTAMP_RESOLUTION, MACHINE_ID_BITS, MONOTONIC> {
         assert!((TIMESTAMP_BITS + MACHINE_ID_BITS) < 64);
-        let machine_id = machine_id & ((1 << MACHINE_ID_BITS) - 1);
+        let machine_id = machine_id & (u64::max_value() >> (64 - MACHINE_ID_BITS));
 
         IceDustGenerator {
             generator,
@@ -88,14 +88,14 @@ impl<
     fn get_random(&mut self, simple_inc: bool) -> u64 {
         let random = if simple_inc {
             // Monotonic update
-            self.last_random += 1;
+            self.last_random = self.last_random.wrapping_add(1);
             self.last_random
         } else {
             let rnd = self.generator.next_u64();
             self.last_random = rnd;
             rnd
         };
-        let random = random & ((1 << Self::RANDOM_BITS) - 1);
+        let random = random & (u64::max_value() >> (64 - Self::RANDOM_BITS));
         random
     }
 
@@ -103,7 +103,7 @@ impl<
     fn get_timestamp(&mut self) -> Option<(u64, bool)> {
         let timestamp = SystemTime::now()
             .duration_since(self.epoch)
-            .unwrap()
+            .ok()?
             .as_millis();
 
         if timestamp >= ((1 << TIMESTAMP_BITS) * TIMESTAMP_RESOLUTION) as u128 {
@@ -114,6 +114,10 @@ impl<
         let timestamp = timestamp / TIMESTAMP_RESOLUTION;
 
         let last = self.last_timestamp;
+        if last > timestamp {
+            // Avoid running backwards
+            return None;
+        }
         self.last_timestamp = timestamp;
         Some((timestamp, timestamp == last))
     }
